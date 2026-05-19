@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Wildfire Conditions Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css"
+    rel="stylesheet"
+  />
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
+
+  <style>
+    :root {
+      --panel-bg: rgba(255, 255, 255, 0.96);
+      --text-dark: #1f1f1f;
+      --text-muted: #555;
+      --border-soft: #ddd;
+      --fire-red: #ff3b1f;
+      --fire-orange: #ff7300;
+      --hotspot-yellow: #ffd000;
+      --smoke-gray: rgba(120, 120, 120, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #111;
+      color: var(--text-dark);
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    .map-panel {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+      width: 290px;
+      max-width: calc(100vw - 32px);
+      background: var(--panel-bg);
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+      padding: 16px;
+    }
+
+    .map-panel h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .map-panel .subtitle {
+      margin: 0 0 14px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+
+    .status-card {
+      margin: 0 0 14px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #f3f3f3;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #333;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 3px 0;
+    }
+
+    .status-label {
+      color: #666;
+    }
+
+    .status-value {
+      font-weight: bold;
+      text-align: right;
+    }
+
+    .toggle-group {
+      margin: 0 0 14px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 10px 0;
+      font-size: 14px;
+    }
+
+    .toggle-row span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toggle-row input {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .legend {
+      padding-top: 12px;
+      border-top: 1px solid var(--border-soft);
+      font-size: 12px;
+      color: #444;
+    }
+
+    .legend-title {
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #222;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 7px 0;
+    }
+
+    .swatch {
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    .swatch-incident {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--fire-red);
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px #b91b08;
+    }
+
+    .swatch-perimeter {
+      width: 18px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 115, 0, 0.28);
+      border: 2px solid var(--fire-orange);
+    }
+
+    .swatch-hotspot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--hotspot-yellow);
+      border: 1px solid #7a2300;
+    }
+
+    .swatch-smoke {
+      width: 18px;
+      height: 12px;
+      border-radius: 999px;
+      background: var(--smoke-gray);
+      border: 1px solid rgba(90, 90, 90, 0.6);
+    }
+
+    .note {
+      margin-top: 12px;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #666;
+    }
+
+    .mapboxgl-popup-content {
+      max-width: 300px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.4;
+      border-radius: 10px;
+    }
+
+    .popup-title {
+      margin-bottom: 7px;
+      font-weight: bold;
+      font-size: 15px;
+      color: #111;
+    }
+
+    .popup-row {
+      margin: 4px 0;
+    }
+
+    .popup-label {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .map-error {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      z-index: 20;
+      max-width: 340px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(120, 20, 20, 0.94);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1.4;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .map-panel {
+        top: auto;
+        bottom: 16px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: none;
+        padding: 14px;
+      }
+
+      .map-panel h1 {
+        font-size: 18px;
+      }
+
+      .legend {
+        display: none;
+      }
+
+      .note {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div id="mapError" class="map-error"></div>
+
+  <aside class="map-panel">
+    <h1>Wildfire Conditions</h1>
+    <p class="subtitle">
+      DeKalb County and surrounding metro Atlanta area.
+    </p>
+
+    <div class="status-card">
+      <div class="status-row">
+        <span class="status-label">Incidents</span>
+        <span id="incidentCount" class="status-value">Loading</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Perimeters</span>
+        <span id="perimeterCount" class="status-value">Loading</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Hotspots</span>
+        <span id="hotspotCount" class="status-value">Loading</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Smoke areas</span>
+        <span id="smokeCount" class="status-value">Loading</span>
+      </div>
+    </div>
+
+    <div class="toggle-group">
+      <label class="toggle-row">
+        <span>
+          <i class="swatch swatch-perimeter"></i>
+          Fire Perimeters
+        </span>
+        <input type="checkbox" data-layer-toggle="perimeters" checked />
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <i class="swatch swatch-hotspot"></i>
+          Hotspots
+        </span>
+        <input type="checkbox" data-layer-toggle="hotspots" checked />
+      </label>
+
+      <label class="toggle-row">
+        <span>
+          <i class="swatch swatch-smoke"></i>
+          Smoke
+        </span>
+        <input type="checkbox" data-layer-toggle="smoke" checked />
+      </label>
+    </div>
+
+    <div class="legend">
+      <div class="legend-title">Legend</div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-incident"></i>
+        <span>Wildfire incident</span>
+      </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-perimeter"></i>
+        <span>Fire perimeter</span>
+      </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-hotspot"></i>
+        <span>Satellite hotspot</span>
+      </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-smoke"></i>
+        <span>Observed smoke</span>
+      </div>
+    </div>
+
+    <div class="note">
+      Satellite hotspots are thermal detections, not confirmed wildfire incidents.
+    </div>
+  </aside>
+
+  <script>
+    mapboxgl.accessToken = 'KEY_GOES_HERE';
+
+    const ENDPOINTS = {
+      incidents: './api/incidents.php',
+      perimeters: './api/perimeters.php',
+      hotspots: './api/hotspots.php',
+      smoke: './api/smoke.php'
+    };
+
+    const INITIAL_CENTER = [-84.225, 33.79];
+    const INITIAL_ZOOM = 8.7;
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: INITIAL_CENTER,
+      zoom: INITIAL_ZOOM,
+      attributionControl: true
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+
+    const hoverPopup = new mapboxgl.Popup({
+      closeButton: false,
+      closeOnClick: false
+    });
+
+    function showError(message) {
+      const errorBox = document.getElementById('mapError');
+      errorBox.textContent = message;
+      errorBox.style.display = 'block';
+
+      window.setTimeout(() => {
+        errorBox.style.display = 'none';
+      }, 7000);
+    }
+
+    async function fetchGeoJson(url, label) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            Accept: 'application/geo+json, application/json'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`${label} returned ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+          throw new Error(`${label} did not return a valid FeatureCollection`);
+        }
+
+        return data;
+      } catch (error) {
+        console.warn(error);
+        showError(`${label} could not be loaded. The layer will appear empty.`);
+
+        return {
+          type: 'FeatureCollection',
+          features: []
+        };
+      }
+    }
+
+    function updateCount(id, data) {
+      const el = document.getElementById(id);
+      el.textContent = data.features.length.toLocaleString();
+    }
+
+    function getProp(feature, possibleNames, fallback = 'Unknown') {
+      if (!feature || !feature.properties) {
+        return fallback;
+      }
+
+      for (const name of possibleNames) {
+        if (
+          Object.prototype.hasOwnProperty.call(feature.properties, name) &&
+          feature.properties[name] !== null &&
+          feature.properties[name] !== ''
+        ) {
+          return feature.properties[name];
+        }
+      }
+
+      return fallback;
+    }
+
+    function formatDate(value) {
+      if (!value || value === 'Unknown' || value === 'Not reported') {
+        return 'Not reported';
+      }
+
+      /*
+        ArcGIS sometimes sends epoch milliseconds, sometimes strings.
+        We try both without getting fancy.
+      */
+      const maybeNumber = Number(value);
+      const date = Number.isFinite(maybeNumber)
+        ? new Date(maybeNumber)
+        : new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return date.toLocaleString();
+    }
+
+    function formatAcres(value) {
+      if (value === null || value === undefined || value === '' || value === 'Unknown') {
+        return 'Not reported';
+      }
+
+      const num = Number(value);
+
+      if (!Number.isFinite(num)) {
+        return String(value);
+      }
+
+      return `${num.toLocaleString()} acres`;
+    }
+
+    function buildIncidentPopup(feature) {
+      const name = getProp(feature, [
+        'IncidentName',
+        'Incident_Name',
+        'POOIncidentName',
+        'irwin_IncidentName',
+        'name'
+      ], 'Unnamed incident');
+
+      const type = getProp(feature, [
+        'IncidentTypeCategory',
+        'IncidentType',
+        'FireCause',
+        'type'
+      ], 'Not reported');
+
+      const acres = getProp(feature, [
+        'IncidentSize',
+        'DailyAcres',
+        'DiscoveryAcres',
+        'GISAcres',
+        'acres'
+      ], 'Not reported');
+
+      const containment = getProp(feature, [
+        'PercentContained',
+        'PercentContained_Nbr',
+        'Containment',
+        'containment'
+      ], 'Not reported');
+
+      const status = getProp(feature, [
+        'IncidentStatus',
+        'IncidentStatusCategory',
+        'FireMgmtComplexity',
+        'status'
+      ], 'Not reported');
+
+      const updated = getProp(feature, [
+        'ModifiedOnDateTime_dt',
+        'CreatedOnDateTime_dt',
+        'CreateDate',
+        'EditDate',
+        'updated'
+      ], 'Not reported');
+
+      const containmentDisplay =
+        containment === 'Not reported'
+          ? containment
+          : `${containment}${String(containment).includes('%') ? '' : '%'}`;
+
+      return `
+        <div class="popup-title">${escapeHtml(name)}</div>
+
+        <div class="popup-row">
+          <span class="popup-label">Type:</span>
+          ${escapeHtml(type)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Acres:</span>
+          ${escapeHtml(formatAcres(acres))}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Contained:</span>
+          ${escapeHtml(containmentDisplay)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Status:</span>
+          ${escapeHtml(status)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Updated:</span>
+          ${escapeHtml(formatDate(updated))}
+        </div>
+      `;
+    }
+
+    function buildHotspotPopup(feature) {
+      const brightness = getProp(feature, ['bright_ti4', 'brightness', 'bright_t31'], 'Not reported');
+      const confidence = getProp(feature, ['confidence'], 'Not reported');
+      const scan = getProp(feature, ['scan'], 'Not reported');
+      const track = getProp(feature, ['track'], 'Not reported');
+      const date = getProp(feature, ['acq_date'], 'Not reported');
+      const time = getProp(feature, ['acq_time'], '');
+
+      return `
+        <div class="popup-title">Satellite Hotspot</div>
+
+        <div class="popup-row">
+          <span class="popup-label">Brightness:</span>
+          ${escapeHtml(brightness)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Confidence:</span>
+          ${escapeHtml(confidence)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Scan / Track:</span>
+          ${escapeHtml(scan)} / ${escapeHtml(track)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Acquired:</span>
+          ${escapeHtml(`${date} ${time}`.trim())}
+        </div>
+
+        <div class="popup-row">
+          <em>Thermal detection only, not a confirmed incident.</em>
+        </div>
+      `;
+    }
+
+    function buildSmokePopup(feature) {
+      const density = getProp(feature, [
+        'Density',
+        'density',
+        'SmokeDensity',
+        'SMOKE'
+      ], 'Not reported');
+
+      const date = getProp(feature, [
+        'Start',
+        'StartDate',
+        'CreateDate',
+        'ValidTime',
+        'Date'
+      ], 'Not reported');
+
+      return `
+        <div class="popup-title">Observed Smoke</div>
+
+        <div class="popup-row">
+          <span class="popup-label">Density:</span>
+          ${escapeHtml(density)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Time:</span>
+          ${escapeHtml(formatDate(date))}
+        </div>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function setLayerGroupVisibility(groupName, visible) {
+      const layerGroups = {
+        perimeters: [
+          'fire-perimeters-fill',
+          'fire-perimeters-line'
+        ],
+        hotspots: [
+          'hotspots-circle'
+        ],
+        smoke: [
+          'smoke-fill',
+          'smoke-line'
+        ]
+      };
+
+      const visibility = visible ? 'visible' : 'none';
+
+      for (const layerId of layerGroups[groupName] || []) {
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', visibility);
+        }
+      }
+    }
+
+    function addLayerToggles() {
+      document.querySelectorAll('[data-layer-toggle]').forEach((input) => {
+        input.addEventListener('change', (event) => {
+          const groupName = event.target.dataset.layerToggle;
+          setLayerGroupVisibility(groupName, event.target.checked);
+        });
+      });
+    }
+
+    function addHoverPopup(layerId, popupBuilder) {
+      map.on('mouseenter', layerId, (event) => {
+        map.getCanvas().style.cursor = 'pointer';
+
+        const feature = event.features && event.features[0];
+
+        if (!feature) {
+          return;
+        }
+
+        let coordinates;
+
+        if (feature.geometry.type === 'Point') {
+          coordinates = feature.geometry.coordinates.slice();
+        } else {
+          coordinates = event.lngLat;
+        }
+
+        hoverPopup
+          .setLngLat(coordinates)
+          .setHTML(popupBuilder(feature))
+          .addTo(map);
+      });
+
+      map.on('mouseleave', layerId, () => {
+        map.getCanvas().style.cursor = '';
+        hoverPopup.remove();
+      });
+    }
+
+    function addSources(data) {
+      map.addSource('wildfire-incidents', {
+        type: 'geojson',
+        data: data.incidents
+      });
+
+      map.addSource('fire-perimeters', {
+        type: 'geojson',
+        data: data.perimeters
+      });
+
+      map.addSource('hotspots', {
+        type: 'geojson',
+        data: data.hotspots
+      });
+
+      map.addSource('smoke', {
+        type: 'geojson',
+        data: data.smoke
+      });
+    }
+
+    function addSmokeLayers() {
+      map.addLayer({
+        id: 'smoke-fill',
+        type: 'fill',
+        source: 'smoke',
+        layout: {
+          visibility: 'visible'
+        },
+        paint: {
+          'fill-color': [
+            'match',
+            ['coalesce', ['get', 'Density'], ['get', 'density']],
+            'Heavy', 'rgba(80, 80, 80, 0.55)',
+            'Medium', 'rgba(120, 120, 120, 0.38)',
+            'Light', 'rgba(170, 170, 170, 0.25)',
+            'rgba(120, 120, 120, 0.30)'
+          ],
+          'fill-opacity': 1
+        }
+      });
+
+      map.addLayer({
+        id: 'smoke-line',
+        type: 'line',
+        source: 'smoke',
+        layout: {
+          visibility: 'visible'
+        },
+        paint: {
+          'line-color': 'rgba(90, 90, 90, 0.55)',
+          'line-width': 1
+        }
+      });
+    }
+
+    function addPerimeterLayers() {
+      map.addLayer({
+        id: 'fire-perimeters-fill',
+        type: 'fill',
+        source: 'fire-perimeters',
+        layout: {
+          visibility: 'visible'
+        },
+        paint: {
+          'fill-color': 'rgba(255, 115, 0, 0.28)',
+          'fill-outline-color': '#ff7300'
+        }
+      });
+
+      map.addLayer({
+        id: 'fire-perimeters-line',
+        type: 'line',
+        source: 'fire-perimeters',
+        layout: {
+          visibility: 'visible'
+        },
+        paint: {
+          'line-color': '#ff7300',
+          'line-width': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            7, 1.5,
+            12, 3
+          ]
+        }
+      });
+    }
+
+    function addHotspotLayers() {
+      map.addLayer({
+        id: 'hotspots-circle',
+        type: 'circle',
+        source: 'hotspots',
+        layout: {
+          visibility: 'visible'
+        },
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            7, 4,
+            12, 9
+          ],
+          'circle-color': '#ffd000',
+          'circle-stroke-color': '#7a2300',
+          'circle-stroke-width': 1.5,
+          'circle-opacity': 0.9
+        }
+      });
+    }
+
+    function addIncidentLayers() {
+      map.addLayer({
+        id: 'wildfire-incidents-circle',
+        type: 'circle',
+        source: 'wildfire-incidents',
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            7, 6,
+            12, 12
+          ],
+          'circle-color': '#ff3b1f',
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+          'circle-opacity': 0.95
+        }
+      });
+
+      map.addLayer({
+        id: 'wildfire-incidents-label',
+        type: 'symbol',
+        source: 'wildfire-incidents',
+        minzoom: 8,
+        layout: {
+          'text-field': [
+            'coalesce',
+            ['get', 'IncidentName'],
+            ['get', 'Incident_Name'],
+            ['get', 'POOIncidentName'],
+            ['get', 'name'],
+            'Wildfire'
+          ],
+          'text-size': 12,
+          'text-offset': [0, 1.35],
+          'text-anchor': 'top',
+          'text-allow-overlap': false,
+          'text-ignore-placement': false
+        },
+        paint: {
+          'text-color': '#3a1000',
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5
+        }
+      });
+    }
+
+    function fitToData(data) {
+      const bounds = new mapboxgl.LngLatBounds();
+
+      const addCoordinate = (coord) => {
+        if (
+          Array.isArray(coord) &&
+          coord.length >= 2 &&
+          Number.isFinite(Number(coord[0])) &&
+          Number.isFinite(Number(coord[1]))
+        ) {
+          bounds.extend([Number(coord[0]), Number(coord[1])]);
+        }
+      };
+
+      const walkCoords = (coords) => {
+        if (!Array.isArray(coords)) {
+          return;
+        }
+
+        if (
+          typeof coords[0] === 'number' &&
+          typeof coords[1] === 'number'
+        ) {
+          addCoordinate(coords);
+          return;
+        }
+
+        coords.forEach(walkCoords);
+      };
+
+      const collections = [
+        data.incidents,
+        data.perimeters,
+        data.hotspots,
+        data.smoke
+      ];
+
+      collections.forEach((collection) => {
+        collection.features.forEach((feature) => {
+          if (feature.geometry && feature.geometry.coordinates) {
+            walkCoords(feature.geometry.coordinates);
+          }
+        });
+      });
+
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, {
+          padding: 70,
+          maxZoom: 10.5,
+          duration: 900
+        });
+      }
+    }
+
+    map.on('load', async () => {
+      const [
+        incidents,
+        perimeters,
+        hotspots,
+        smoke
+      ] = await Promise.all([
+        fetchGeoJson(ENDPOINTS.incidents, 'Wildfire incidents'),
+        fetchGeoJson(ENDPOINTS.perimeters, 'Fire perimeters'),
+        fetchGeoJson(ENDPOINTS.hotspots, 'Satellite hotspots'),
+        fetchGeoJson(ENDPOINTS.smoke, 'Smoke')
+      ]);
+
+      updateCount('incidentCount', incidents);
+      updateCount('perimeterCount', perimeters);
+      updateCount('hotspotCount', hotspots);
+      updateCount('smokeCount', smoke);
+
+      const data = {
+        incidents,
+        perimeters,
+        hotspots,
+        smoke
+      };
+
+      addSources(data);
+
+      /*
+        Layer order matters:
+        smoke underneath,
+        perimeter above smoke,
+        hotspots above perimeter,
+        incidents above everything.
+      */
+      addSmokeLayers();
+      addPerimeterLayers();
+      addHotspotLayers();
+      addIncidentLayers();
+
+      addHoverPopup('wildfire-incidents-circle', buildIncidentPopup);
+      addHoverPopup('hotspots-circle', buildHotspotPopup);
+      addHoverPopup('smoke-fill', buildSmokePopup);
+
+      addLayerToggles();
+      fitToData(data);
+    });
+  </script>
+</body>
+</html>
