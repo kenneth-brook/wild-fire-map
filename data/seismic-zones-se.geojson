@@ -1,0 +1,61 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Brevard Fault Zone",
+        "type": "Fault zone",
+        "description": "Long Appalachian fault zone extending from Alabama through north Georgia and the Carolinas."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-86.30, 32.40],
+          [-85.40, 33.00],
+          [-84.40, 33.80],
+          [-83.20, 34.40],
+          [-82.10, 35.10],
+          [-81.00, 35.80],
+          [-80.00, 36.30]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Eastern Tennessee Seismic Zone",
+        "type": "Seismic zone",
+        "description": "One of the most active earthquake zones in the eastern United States."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-86.30, 34.20],
+          [-85.40, 35.00],
+          [-84.60, 35.70],
+          [-83.70, 36.30],
+          [-82.60, 37.00]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Charleston Seismic Zone",
+        "type": "Seismic zone",
+        "description": "Seismic zone near Summerville and Charleston, South Carolina, associated with the 1886 Charleston earthquake."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.45, 33.15],
+          [-79.80, 33.15],
+          [-79.80, 32.65],
+          [-80.45, 32.65],
+          [-80.45, 33.15]
+        ]]
+      }
+    }
+  ]
+}

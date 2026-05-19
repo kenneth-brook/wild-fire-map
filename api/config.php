@@ -3,11 +3,20 @@
 return [
     'cache_ttl' => 300, // 5 minutes
 
+    // Georgia bbox for wildfire, smoke, and hotspots
     'bbox' => [
         'west' => -85.65,
         'south' => 30.30,
         'east' => -80.75,
         'north' => 35.05,
+    ],
+
+    // Continental U.S. bbox for fault-line proof of concept
+    'us_bbox' => [
+        'west' => -94.00,
+        'south' => 24.00,
+        'east' => -75.00,
+        'north' => 39.50,
     ],
 
     'firms_map_key' => 'KEY_GOES_HERE',
@@ -18,7 +27,6 @@ return [
     'wfigs_perimeters_url' =>
         'https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/WFIGS_Interagency_Perimeters_Current/FeatureServer/0/query',
 
-    // NOAA HMS Smoke Detection service
     'smoke_url' =>
         'https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/NOAA_Satellite_Smoke_Detection_(v1)/FeatureServer/0/query',
 

@@ -442,12 +442,14 @@
     mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
 
     const ENDPOINTS = {
-      incidents: './api/incidents.php',
-      perimeters: './api/perimeters.php',
-      hotspots: './api/hotspots.php',
-      smoke: './api/smoke.php',
-      earthquakes: './api/earthquakes.php',
-      faults: './api/faults.php'
+        incidents: './api/incidents.php',
+        perimeters: './api/perimeters.php',
+        hotspots: './api/hotspots.php',
+        smoke: './api/smoke.php',
+        earthquakes: './api/earthquakes.php',
+
+        // Local curated Southeast seismic/fault reference data
+        faults: './data/seismic-zones-se.geojson'
     };
 
     const INITIAL_CENTER = [-83.35, 32.75];
@@ -766,54 +768,23 @@
     }
 
     function buildFaultPopup(feature) {
-      const name = getProp(feature, ['fault_name', 'faultname', 'name'], 'Unnamed fault');
-      const section = getProp(feature, ['section_name', 'section'], 'Not reported');
-      const age = getProp(feature, ['age'], 'Not reported');
-      const slipRate = getProp(feature, ['slip_rate', 'sliprate'], 'Not reported');
-      const slipSense = getProp(feature, ['slip_sense', 'slipsense'], 'Not reported');
-      const certainty = getProp(feature, ['mapped_certainty', 'certainty'], 'Not reported');
-      const url = getProp(feature, ['fault_url', 'url'], '');
+        const name = getProp(feature, ['name', 'fault_name', 'title'], 'Unnamed zone');
+        const type = getProp(feature, ['type', 'category'], 'Reference feature');
+        const description = getProp(feature, ['description', 'details', 'notes'], 'No description available.');
 
-      const linkHtml = url && url !== 'Unknown'
-        ? `
-          <div class="popup-row">
-            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
-              View USGS fault details
-            </a>
-          </div>
-        `
-        : '';
+        return `
+            <div class="popup-title">${escapeHtml(name)}</div>
 
-      return `
-        <div class="popup-title">${escapeHtml(name)}</div>
+            <div class="popup-row">
+            <span class="popup-label">Type:</span>
+            ${escapeHtml(type)}
+            </div>
 
-        <div class="popup-row">
-          <span class="popup-label">Section:</span>
-          ${escapeHtml(section)}
-        </div>
-
-        <div class="popup-row">
-          <span class="popup-label">Age:</span>
-          ${escapeHtml(age)}
-        </div>
-
-        <div class="popup-row">
-          <span class="popup-label">Slip rate:</span>
-          ${escapeHtml(slipRate)}
-        </div>
-
-        <div class="popup-row">
-          <span class="popup-label">Slip sense:</span>
-          ${escapeHtml(slipSense)}
-        </div>
-
-        <div class="popup-row">
-          <span class="popup-label">Certainty:</span>
-          ${escapeHtml(certainty)}
-        </div>
-
-        ${linkHtml}
-      `;
+            <div class="popup-row">
+            <span class="popup-label">Description:</span>
+            ${escapeHtml(description)}
+            </div>
+        `;
     }
 
     function buildEarthquakePopup(feature) {
@@ -920,7 +891,8 @@
         ],
 
         faults: [
-          'fault-lines'
+            'fault-zones-fill',
+            'fault-zones-line'
         ],
 
         earthquakes: [
@@ -1046,26 +1018,40 @@
     }
 
     function addFaultLayers() {
-      map.addLayer({
-        id: 'fault-lines',
-        type: 'line',
-        source: 'faults',
-        layout: {
-          visibility: 'none'
-        },
-        paint: {
-          'line-color': '#d100ff',
-          'line-width': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            5, 1,
-            10, 2.5,
-            14, 4
-          ],
-          'line-opacity': 0.85
-        }
-      });
+        map.addLayer({
+            id: 'fault-zones-fill',
+            type: 'fill',
+            source: 'faults',
+            filter: ['any', ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'MultiPolygon']],
+            layout: {
+            visibility: 'none'
+            },
+            paint: {
+            'fill-color': 'rgba(209, 0, 255, 0.18)',
+            'fill-outline-color': '#d100ff'
+            }
+        });
+
+        map.addLayer({
+            id: 'fault-zones-line',
+            type: 'line',
+            source: 'faults',
+            layout: {
+            visibility: 'none'
+            },
+            paint: {
+            'line-color': '#d100ff',
+            'line-width': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                5, 2,
+                10, 4,
+                14, 6
+            ],
+            'line-opacity': 0.9
+            }
+        });
     }
 
     function addPerimeterLayers() {
@@ -1313,7 +1299,8 @@
       addHoverPopup('wildfire-incidents-circle', buildIncidentPopup);
       addHoverPopup('hotspots-circle', buildHotspotPopup);
       addHoverPopup('smoke-fill', buildSmokePopup);
-      addHoverPopup('fault-lines', buildFaultPopup);
+      addHoverPopup('fault-zones-line', buildFaultPopup);
+      addHoverPopup('fault-zones-fill', buildFaultPopup);
       addHoverPopup('earthquakes-circle', buildEarthquakePopup);
 
       addLayerButtons();
