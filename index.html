@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Wildfire Conditions Map</title>
+  <title>Hazard Conditions Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <link
@@ -22,6 +22,8 @@
       --fire-orange: #ff7300;
       --hotspot-yellow: #ffd000;
       --smoke-gray: rgba(120, 120, 120, 0.45);
+      --fault-purple: #d100ff;
+      --quake-blue: #00d4ff;
     }
 
     * {
@@ -38,6 +40,54 @@
     #map {
       position: absolute;
       inset: 0;
+    }
+
+    .top-layer-bar {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      z-index: 20;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: calc(100vw - 340px);
+      padding: 8px;
+      border-radius: 999px;
+      background: rgba(20, 20, 20, 0.74);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    .layer-pill {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      padding: 8px 13px;
+      white-space: nowrap;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        transform 160ms ease;
+    }
+
+    .layer-pill:hover {
+      background: rgba(255, 255, 255, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .layer-pill.active {
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #151515;
+      font-weight: bold;
     }
 
     .map-panel {
@@ -90,31 +140,6 @@
     .status-value {
       font-weight: bold;
       text-align: right;
-    }
-
-    .toggle-group {
-      margin: 0 0 14px;
-    }
-
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin: 10px 0;
-      font-size: 14px;
-    }
-
-    .toggle-row span {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .toggle-row input {
-      width: 18px;
-      height: 18px;
-      cursor: pointer;
     }
 
     .legend {
@@ -175,6 +200,38 @@
       border: 1px solid rgba(90, 90, 90, 0.6);
     }
 
+    .swatch-clouds {
+      width: 18px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(80, 80, 80, 0.45);
+    }
+
+    .swatch-precip {
+      width: 18px;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #50b848, #ffd000, #f05a28);
+      border: 1px solid rgba(60, 60, 60, 0.5);
+    }
+
+    .swatch-fault {
+      width: 20px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--fault-purple);
+    }
+
+    .swatch-earthquake {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--quake-blue);
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 1px #004d66;
+    }
+
     .note {
       margin-top: 12px;
       font-size: 11px;
@@ -183,7 +240,7 @@
     }
 
     .mapboxgl-popup-content {
-      max-width: 300px;
+      max-width: 320px;
       padding: 12px 14px;
       font-size: 13px;
       line-height: 1.4;
@@ -209,8 +266,8 @@
     .map-error {
       position: absolute;
       right: 16px;
-      top: 16px;
-      z-index: 20;
+      top: 72px;
+      z-index: 30;
       max-width: 340px;
       padding: 12px 14px;
       border-radius: 12px;
@@ -222,7 +279,29 @@
       display: none;
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 1100px) {
+      .top-layer-bar {
+        left: 320px;
+        right: 16px;
+        transform: none;
+        max-width: none;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .top-layer-bar {
+        left: 12px;
+        right: 12px;
+        top: 10px;
+        border-radius: 16px;
+      }
+
+      .layer-pill {
+        padding: 8px 11px;
+        font-size: 12px;
+      }
+
       .map-panel {
         top: auto;
         bottom: 16px;
@@ -244,6 +323,13 @@
       .note {
         display: none;
       }
+
+      .map-error {
+        top: 64px;
+        left: 12px;
+        right: 12px;
+        max-width: none;
+      }
     }
   </style>
 </head>
@@ -251,12 +337,23 @@
 <body>
   <div id="map"></div>
 
+  <div class="top-layer-bar" aria-label="Map layer controls">
+    <button class="layer-pill active" data-layer-button="wildfires">Wildfires</button>
+    <button class="layer-pill active" data-layer-button="perimeters">Perimeters</button>
+    <button class="layer-pill active" data-layer-button="hotspots">Hotspots</button>
+    <button class="layer-pill active" data-layer-button="smoke">Smoke</button>
+    <button class="layer-pill" data-layer-button="clouds">Satellite Clouds</button>
+    <button class="layer-pill" data-layer-button="precipitation">Precipitation</button>
+    <button class="layer-pill" data-layer-button="faults">Fault Lines</button>
+    <button class="layer-pill" data-layer-button="earthquakes">Seismic Activity</button>
+  </div>
+
   <div id="mapError" class="map-error"></div>
 
   <aside class="map-panel">
-    <h1>Wildfire Conditions</h1>
+    <h1>Hazard Conditions</h1>
     <p class="subtitle">
-      DeKalb County and surrounding metro Atlanta area.
+      Georgia-wide proof of concept with wildfire, smoke, weather, fault, and seismic layers.
     </p>
 
     <div class="status-card">
@@ -264,44 +361,31 @@
         <span class="status-label">Incidents</span>
         <span id="incidentCount" class="status-value">Loading</span>
       </div>
+
       <div class="status-row">
         <span class="status-label">Perimeters</span>
         <span id="perimeterCount" class="status-value">Loading</span>
       </div>
+
       <div class="status-row">
         <span class="status-label">Hotspots</span>
         <span id="hotspotCount" class="status-value">Loading</span>
       </div>
+
       <div class="status-row">
         <span class="status-label">Smoke areas</span>
         <span id="smokeCount" class="status-value">Loading</span>
       </div>
-    </div>
 
-    <div class="toggle-group">
-      <label class="toggle-row">
-        <span>
-          <i class="swatch swatch-perimeter"></i>
-          Fire Perimeters
-        </span>
-        <input type="checkbox" data-layer-toggle="perimeters" checked />
-      </label>
+      <div class="status-row">
+        <span class="status-label">Fault lines</span>
+        <span id="faultCount" class="status-value">Loading</span>
+      </div>
 
-      <label class="toggle-row">
-        <span>
-          <i class="swatch swatch-hotspot"></i>
-          Hotspots
-        </span>
-        <input type="checkbox" data-layer-toggle="hotspots" checked />
-      </label>
-
-      <label class="toggle-row">
-        <span>
-          <i class="swatch swatch-smoke"></i>
-          Smoke
-        </span>
-        <input type="checkbox" data-layer-toggle="smoke" checked />
-      </label>
+      <div class="status-row">
+        <span class="status-label">Earthquakes</span>
+        <span id="earthquakeCount" class="status-value">Loading</span>
+      </div>
     </div>
 
     <div class="legend">
@@ -326,25 +410,88 @@
         <i class="swatch swatch-smoke"></i>
         <span>Observed smoke</span>
       </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-clouds"></i>
+        <span>Satellite cloud imagery</span>
+      </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-precip"></i>
+        <span>Radar precipitation</span>
+      </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-fault"></i>
+        <span>Fault line</span>
+      </div>
+
+      <div class="legend-item">
+        <i class="swatch swatch-earthquake"></i>
+        <span>Recent earthquake</span>
+      </div>
     </div>
 
     <div class="note">
       Satellite hotspots are thermal detections, not confirmed wildfire incidents.
+      Fault lines are reference data. Earthquakes show recent USGS activity.
     </div>
   </aside>
 
   <script>
-    mapboxgl.accessToken = 'KEY_GOES_HERE';
+    mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
 
     const ENDPOINTS = {
       incidents: './api/incidents.php',
       perimeters: './api/perimeters.php',
       hotspots: './api/hotspots.php',
-      smoke: './api/smoke.php'
+      smoke: './api/smoke.php',
+      earthquakes: './api/earthquakes.php',
+      faults: './api/faults.php'
     };
 
-    const INITIAL_CENTER = [-84.225, 33.79];
-    const INITIAL_ZOOM = 8.7;
+    const INITIAL_CENTER = [-83.35, 32.75];
+    const INITIAL_ZOOM = 6.4;
+
+    const WEATHER_RASTER_LAYERS = {
+      clouds: {
+        sourceId: 'satellite-clouds-source',
+        layerId: 'satellite-clouds-layer',
+        opacity: 0.46,
+        visibleByDefault: false,
+        tileSize: 512,
+        tileUrl:
+          'https://nowcoast.noaa.gov/geoserver/observations/satellite/ows' +
+          '?SERVICE=WMS' +
+          '&VERSION=1.3.0' +
+          '&REQUEST=GetMap' +
+          '&LAYERS=global_visible_imagery_mosaic' +
+          '&STYLES=' +
+          '&FORMAT=image/png' +
+          '&TRANSPARENT=true' +
+          '&CRS=EPSG:3857' +
+          '&BBOX={bbox-epsg-3857}' +
+          '&WIDTH=512' +
+          '&HEIGHT=512'
+      },
+
+      precipitation: {
+        sourceId: 'noaa-radar-source',
+        layerId: 'noaa-radar-layer',
+        opacity: 0.78,
+        visibleByDefault: false,
+        tileSize: 256,
+        tileUrl:
+          'https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity/MapServer/export' +
+          '?bbox={bbox-epsg-3857}' +
+          '&bboxSR=3857' +
+          '&imageSR=3857' +
+          '&size=256,256' +
+          '&format=png32' +
+          '&transparent=true' +
+          '&f=image'
+      }
+    };
 
     const map = new mapboxgl.Map({
       container: 'map',
@@ -403,6 +550,11 @@
 
     function updateCount(id, data) {
       const el = document.getElementById(id);
+
+      if (!el) {
+        return;
+      }
+
       el.textContent = data.features.length.toLocaleString();
     }
 
@@ -429,10 +581,6 @@
         return 'Not reported';
       }
 
-      /*
-        ArcGIS sometimes sends epoch milliseconds, sometimes strings.
-        We try both without getting fancy.
-      */
       const maybeNumber = Number(value);
       const date = Number.isFinite(maybeNumber)
         ? new Date(maybeNumber)
@@ -457,6 +605,15 @@
       }
 
       return `${num.toLocaleString()} acres`;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
     }
 
     function buildIncidentPopup(feature) {
@@ -608,27 +765,166 @@
       `;
     }
 
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+    function buildFaultPopup(feature) {
+      const name = getProp(feature, ['fault_name', 'faultname', 'name'], 'Unnamed fault');
+      const section = getProp(feature, ['section_name', 'section'], 'Not reported');
+      const age = getProp(feature, ['age'], 'Not reported');
+      const slipRate = getProp(feature, ['slip_rate', 'sliprate'], 'Not reported');
+      const slipSense = getProp(feature, ['slip_sense', 'slipsense'], 'Not reported');
+      const certainty = getProp(feature, ['mapped_certainty', 'certainty'], 'Not reported');
+      const url = getProp(feature, ['fault_url', 'url'], '');
+
+      const linkHtml = url && url !== 'Unknown'
+        ? `
+          <div class="popup-row">
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+              View USGS fault details
+            </a>
+          </div>
+        `
+        : '';
+
+      return `
+        <div class="popup-title">${escapeHtml(name)}</div>
+
+        <div class="popup-row">
+          <span class="popup-label">Section:</span>
+          ${escapeHtml(section)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Age:</span>
+          ${escapeHtml(age)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Slip rate:</span>
+          ${escapeHtml(slipRate)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Slip sense:</span>
+          ${escapeHtml(slipSense)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Certainty:</span>
+          ${escapeHtml(certainty)}
+        </div>
+
+        ${linkHtml}
+      `;
+    }
+
+    function buildEarthquakePopup(feature) {
+      const mag = getProp(feature, ['mag'], 'Not reported');
+      const place = getProp(feature, ['place'], 'Unknown location');
+      const time = getProp(feature, ['time'], 'Not reported');
+      const status = getProp(feature, ['status'], 'Not reported');
+      const type = getProp(feature, ['type'], 'earthquake');
+      const url = getProp(feature, ['url'], '');
+
+      const depth = Array.isArray(feature.geometry.coordinates)
+        ? feature.geometry.coordinates[2]
+        : null;
+
+      const linkHtml = url && url !== 'Unknown'
+        ? `
+          <div class="popup-row">
+            <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
+              View USGS event details
+            </a>
+          </div>
+        `
+        : '';
+
+      return `
+        <div class="popup-title">M${escapeHtml(mag)} ${escapeHtml(type)}</div>
+
+        <div class="popup-row">
+          <span class="popup-label">Location:</span>
+          ${escapeHtml(place)}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Depth:</span>
+          ${depth != null ? escapeHtml(`${depth} km`) : 'Not reported'}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Time:</span>
+          ${escapeHtml(formatDate(time))}
+        </div>
+
+        <div class="popup-row">
+          <span class="popup-label">Status:</span>
+          ${escapeHtml(status)}
+        </div>
+
+        ${linkHtml}
+      `;
+    }
+
+    function addArcGisRasterLayer(config) {
+      if (map.getSource(config.sourceId)) {
+        return;
+      }
+
+      map.addSource(config.sourceId, {
+        type: 'raster',
+        tiles: [config.tileUrl],
+        tileSize: config.tileSize || 256
+      });
+
+      map.addLayer({
+        id: config.layerId,
+        type: 'raster',
+        source: config.sourceId,
+        layout: {
+          visibility: config.visibleByDefault ? 'visible' : 'none'
+        },
+        paint: {
+          'raster-opacity': config.opacity,
+          'raster-fade-duration': 300
+        }
+      });
     }
 
     function setLayerGroupVisibility(groupName, visible) {
       const layerGroups = {
+        wildfires: [
+          'wildfire-incidents-circle',
+          'wildfire-incidents-label'
+        ],
+
         perimeters: [
           'fire-perimeters-fill',
           'fire-perimeters-line'
         ],
+
         hotspots: [
           'hotspots-circle'
         ],
+
         smoke: [
           'smoke-fill',
           'smoke-line'
+        ],
+
+        clouds: [
+          'satellite-clouds-layer'
+        ],
+
+        precipitation: [
+          'noaa-radar-layer'
+        ],
+
+        faults: [
+          'fault-lines'
+        ],
+
+        earthquakes: [
+          'earthquakes-circle'
         ]
       };
 
@@ -641,11 +937,13 @@
       }
     }
 
-    function addLayerToggles() {
-      document.querySelectorAll('[data-layer-toggle]').forEach((input) => {
-        input.addEventListener('change', (event) => {
-          const groupName = event.target.dataset.layerToggle;
-          setLayerGroupVisibility(groupName, event.target.checked);
+    function addLayerButtons() {
+      document.querySelectorAll('[data-layer-button]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const groupName = button.dataset.layerButton;
+          const isActive = button.classList.toggle('active');
+
+          setLayerGroupVisibility(groupName, isActive);
         });
       });
     }
@@ -700,6 +998,16 @@
         type: 'geojson',
         data: data.smoke
       });
+
+      map.addSource('faults', {
+        type: 'geojson',
+        data: data.faults
+      });
+
+      map.addSource('earthquakes', {
+        type: 'geojson',
+        data: data.earthquakes
+      });
     }
 
     function addSmokeLayers() {
@@ -733,6 +1041,29 @@
         paint: {
           'line-color': 'rgba(90, 90, 90, 0.55)',
           'line-width': 1
+        }
+      });
+    }
+
+    function addFaultLayers() {
+      map.addLayer({
+        id: 'fault-lines',
+        type: 'line',
+        source: 'faults',
+        layout: {
+          visibility: 'none'
+        },
+        paint: {
+          'line-color': '#d100ff',
+          'line-width': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            5, 1,
+            10, 2.5,
+            14, 4
+          ],
+          'line-opacity': 0.85
         }
       });
     }
@@ -791,6 +1122,40 @@
           'circle-stroke-color': '#7a2300',
           'circle-stroke-width': 1.5,
           'circle-opacity': 0.9
+        }
+      });
+    }
+
+    function addEarthquakeLayers() {
+      map.addLayer({
+        id: 'earthquakes-circle',
+        type: 'circle',
+        source: 'earthquakes',
+        layout: {
+          visibility: 'none'
+        },
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['coalesce', ['get', 'mag'], 0],
+            0, 4,
+            2.5, 7,
+            4.5, 13,
+            6, 22
+          ],
+          'circle-color': [
+            'interpolate',
+            ['linear'],
+            ['coalesce', ['get', 'mag'], 0],
+            0, '#7de3ff',
+            2.5, '#00d4ff',
+            4.5, '#ffd000',
+            6, '#ff3b1f'
+          ],
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 1.5,
+          'circle-opacity': 0.86
         }
       });
     }
@@ -891,7 +1256,7 @@
       if (!bounds.isEmpty()) {
         map.fitBounds(bounds, {
           padding: 70,
-          maxZoom: 10.5,
+          maxZoom: 8.5,
           duration: 900
         });
       }
@@ -902,45 +1267,56 @@
         incidents,
         perimeters,
         hotspots,
-        smoke
+        smoke,
+        earthquakes,
+        faults
       ] = await Promise.all([
         fetchGeoJson(ENDPOINTS.incidents, 'Wildfire incidents'),
         fetchGeoJson(ENDPOINTS.perimeters, 'Fire perimeters'),
         fetchGeoJson(ENDPOINTS.hotspots, 'Satellite hotspots'),
-        fetchGeoJson(ENDPOINTS.smoke, 'Smoke')
+        fetchGeoJson(ENDPOINTS.smoke, 'Smoke'),
+        fetchGeoJson(ENDPOINTS.earthquakes, 'Seismic activity'),
+        fetchGeoJson(ENDPOINTS.faults, 'Fault lines')
       ]);
 
       updateCount('incidentCount', incidents);
       updateCount('perimeterCount', perimeters);
       updateCount('hotspotCount', hotspots);
       updateCount('smokeCount', smoke);
+      updateCount('earthquakeCount', earthquakes);
+      updateCount('faultCount', faults);
 
       const data = {
         incidents,
         perimeters,
         hotspots,
-        smoke
+        smoke,
+        earthquakes,
+        faults
       };
 
       addSources(data);
 
       /*
-        Layer order matters:
-        smoke underneath,
-        perimeter above smoke,
-        hotspots above perimeter,
-        incidents above everything.
+        Weather raster layers go first so vector hazard intelligence stays on top.
       */
+      addArcGisRasterLayer(WEATHER_RASTER_LAYERS.clouds);
+      addArcGisRasterLayer(WEATHER_RASTER_LAYERS.precipitation);
+
       addSmokeLayers();
+      addFaultLayers();
       addPerimeterLayers();
       addHotspotLayers();
+      addEarthquakeLayers();
       addIncidentLayers();
 
       addHoverPopup('wildfire-incidents-circle', buildIncidentPopup);
       addHoverPopup('hotspots-circle', buildHotspotPopup);
       addHoverPopup('smoke-fill', buildSmokePopup);
+      addHoverPopup('fault-lines', buildFaultPopup);
+      addHoverPopup('earthquakes-circle', buildEarthquakePopup);
 
-      addLayerToggles();
+      addLayerButtons();
       fitToData(data);
     });
   </script>

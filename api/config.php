@@ -21,4 +21,10 @@ return [
     // NOAA HMS Smoke Detection service
     'smoke_url' =>
         'https://services2.arcgis.com/C8EMgrsFcRFL6LrL/arcgis/rest/services/NOAA_Satellite_Smoke_Detection_(v1)/FeatureServer/0/query',
+
+    'usgs_earthquakes_url' =>
+        'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson',
+
+    'usgs_faults_url' =>
+        'https://earthquake.usgs.gov/arcgis/rest/services/haz/Qfaults/MapServer/21/query',
 ];
